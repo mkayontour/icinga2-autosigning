@@ -4,37 +4,43 @@ use JSON;
 use warnings;
 use strict;
 use Data::Dumper;
+use Getopt::Long;
+#use utils qw(%ERRORS);
 
-my ( $data, $cn, $matchpart);
+my ( $data, $cn, $matchpart, $fingerprint, $signed);
 
-use vars qw($opt_m);
+#use vars qw($opt_m);
 
-#TODO
+#$matchpart = "corp.int";
 
-$matchpart = "corp.int";
-
-#GetOptions (
-#  "m|match_pattern" => $matchpart,
-#);
+GetOptions (
+  "m|match_pattern" => \$matchpart,
+) or die("Error parameter -m is missing");
 
 $data = doIcingaCaList();
 
-foreach my $fingerprint ( keys %{$data}) {
-    $cn = $data->{$fingerprint}->{'subject'};
+foreach $fingerprint ( keys %{$data}) {
+    $cn     = $data->{$fingerprint}->{'subject'};
+    $signed = $data->{$fingerprint}->{'cert_response'};
     $cn =~ s/CN = //;
 
-    doMatching($cn);
-
-}
-
-sub doSigning {
-  #TODO Sign the Certs
+    if (defined $signed) {
+      print "Already signed agent $cn\n";
+    } else {
+      doMatching($cn,$fingerprint);
+    }
 
 }
 
 sub doMatching {
-  if (grep(/$matchpart/, $_[0])) {
-    print "matched CN $cn\n";
+  my $match = $_[0];
+  my $finger = $_[1];
+
+  if (grep(/@ARGV/, $match)) {
+    my $exec = "icinga2 ca sign " . $finger;
+    my $result = qx($exec);
+    print "$result";
+    print "Signed $cn with fingerprint: $finger \n\n";
   }
   else
   {
@@ -47,4 +53,4 @@ sub doIcingaCaList {
   my $result = decode_json($json);
   return $result;
 
- }
+}
